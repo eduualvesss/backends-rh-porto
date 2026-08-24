@@ -1,4 +1,4 @@
-//mapa" das rotas, sem lógica de verdade
+//"mapa" das rotas, sem lógica de verdade
 const express = require('express');
 const router = express.Router();
 const { register, login, getProfile } = require('../controllers/authController');
