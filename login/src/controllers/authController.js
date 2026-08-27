@@ -3,6 +3,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { findByEmail, findById, createUser } = require('../models/User');
+const logAction = require('../utils/registrarLog');
 
 async function register(req, res) {
   const { email, password } = req.body;
@@ -36,6 +37,16 @@ async function login(req, res) {
 
   const user = await findByEmail(email);
   if (!user) {
+    // fire and forget — helper já trata erro internamente, não precisa atrasar a resposta
+    logAction({
+      userId: null,
+      action: 'LOGIN_FAILED',
+      resource: 'usuario',
+      resourceId: null,
+      afterData: { attemptedEmail: email, reason: 'user_not_found' },
+      ipAddress: req.ip,
+    });
+
     // mensagem genérica de propósito — não dá pra saber se email existe ou não
     return res.status(401).json({ error: 'credenciais inválidas' });
   }
@@ -44,6 +55,16 @@ async function login(req, res) {
   // nunca reverte o hash original, só recalcula e compara os dois
   const match = await bcrypt.compare(password, user.password);
   if (!match) {
+    // fire and forget — helper já trata erro internamente, não precisa atrasar a resposta
+    logAction({
+      userId: null,
+      action: 'LOGIN_FAILED',
+      resource: 'usuario',
+      resourceId: null,
+      afterData: { attemptedEmail: email, reason: 'invalid_credentials' },
+      ipAddress: req.ip,
+    });
+
     return res.status(401).json({ error: 'credenciais inválidas' });
   }
 
@@ -54,6 +75,15 @@ async function login(req, res) {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES }
   );
+
+  // fire and forget — helper já trata erro internamente, não precisa atrasar a resposta
+  logAction({
+    userId: user.id,
+    action: 'LOGIN',
+    resource: 'usuario',
+    resourceId: user.id,
+    ipAddress: req.ip,
+  });
 
   return res.json({ token });
 }
