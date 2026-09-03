@@ -18,8 +18,9 @@ function authMiddleware(req, res, next) {
     req.user = decoded; // deixa disponível pro controller usar
     next(); // libera a passagem
   } catch (err) {
-    // cai aqui se token expirou ou foi adulterado
-    return res.status(403).json({ error: 'token inválido ou expirado' });
+    // cai aqui se token expirou ou foi adulterado — 401, não 403:
+    // 403 fica reservado pro authorize() (autenticado, mas sem permissão)
+    return res.status(401).json({ error: 'token inválido ou expirado' });
   }
 }
 

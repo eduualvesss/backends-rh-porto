@@ -24,12 +24,24 @@ function validarCPF(cpf) {
   return true;
 }
 
-async function registrarColaborador(req, res) {
-  const { nome, email, cpf, telefone, cargo, departamento, dataAdmissao, status } = req.body;
+// mapeia código de erro do Postgres pro status HTTP certo — sempre pelo código (err.code),
+// nunca pelo texto da mensagem, que muda entre versões/idioma do Postgres
+function tratarErroPostgres(err, res, acao) {
+  if (err.code === '23505') return res.status(409).json({ error: 'cpf ou email já cadastrado' });
+  if (err.code === '23514') return res.status(400).json({ error: 'valor inválido para um dos campos (ex.: status)' });
+  if (err.code === '23502') return res.status(400).json({ error: 'campo obrigatório faltando' });
 
-  // validação básica antes de gastar query no banco
-  if (!nome || !email || !cpf || !cargo || !departamento || !dataAdmissao) {
-    return res.status(400).json({ error: 'nome, email, cpf, cargo, departamento e dataAdmissao são obrigatórios' });
+  console.error(`Erro ao ${acao} colaborador:`, err);
+  return res.status(500).json({ error: `erro ao ${acao} colaborador` });
+}
+
+async function registrarColaborador(req, res) {
+  const { nome, email, cpf, telefone, cargo, departamento, dataAdmissao } = req.body;
+
+  // telefone entrou como NOT NULL no banco (migration 005) — checa aqui pra devolver
+  // 400 claro em vez de deixar estourar 500 genérico por constraint do banco
+  if (!nome || !email || !cpf || !telefone || !cargo || !departamento || !dataAdmissao) {
+    return res.status(400).json({ error: 'nome, email, cpf, telefone, cargo, departamento e dataAdmissao são obrigatórios' });
   }
 
   // aceita CPF com ou sem pontuação no body, mas só guarda dígito no banco
@@ -51,15 +63,11 @@ async function registrarColaborador(req, res) {
       return res.status(409).json({ error: 'cpf já cadastrado' });
     }
 
+    // body inteiro vai pro model — createColaborador só aproveita os campos que
+    // existem em CAMPOS_OPCIONAIS, o resto é ignorado (whitelist, não passa direto pro SQL)
     const colaborador = await Colaborador.createColaborador({
-      nome,
-      email,
+      ...req.body,
       cpf: cpfLimpo,
-      telefone,
-      cargo,
-      departamento,
-      dataAdmissao,
-      status,
     });
 
     // fire and forget — helper já trata erro internamente, não precisa atrasar a resposta
@@ -74,8 +82,7 @@ async function registrarColaborador(req, res) {
 
     return res.status(201).json(colaborador);
   } catch (err) {
-    console.error('Erro ao cadastrar colaborador:', err);
-    return res.status(500).json({ error: 'erro ao cadastrar colaborador' });
+    return tratarErroPostgres(err, res, 'cadastrar');
   }
 }
 
@@ -119,6 +126,12 @@ async function atualizarColaborador(req, res) {
     const fields = { nome, telefone, cargo, departamento, status };
     if (dataAdmissao !== undefined) fields.data_admissao = dataAdmissao; // body em camelCase, coluna em snake_case
 
+    // resto do schema completo (migration 005) — mesma conversão camelCase -> snake_case
+    // usada em createColaborador, via CAMPOS_OPCIONAIS
+    for (const [campo, coluna] of Object.entries(Colaborador.CAMPOS_OPCIONAIS)) {
+      if (req.body[campo] !== undefined) fields[coluna] = req.body[campo];
+    }
+
     if (email !== undefined) {
       const emailExistente = await Colaborador.findByEmail(email);
       if (emailExistente && emailExistente.id !== Number(id)) {
@@ -155,8 +168,7 @@ async function atualizarColaborador(req, res) {
 
     return res.json(colaborador);
   } catch (err) {
-    console.error('Erro ao atualizar colaborador:', err);
-    return res.status(500).json({ error: 'erro ao atualizar colaborador' });
+    return tratarErroPostgres(err, res, 'atualizar');
   }
 }
 
@@ -167,15 +179,18 @@ async function removerColaborador(req, res) {
     const antes = await Colaborador.findById(id);
     if (!antes) return res.status(404).json({ error: 'colaborador não encontrado' });
 
-    await Colaborador.deleteColaborador(id);
+    // deleteColaborador agora é exclusão lógica (UPDATE), não DELETE físico
+    const colaborador = await Colaborador.deleteColaborador(id);
 
-    // fire and forget — helper já trata erro internamente, não precisa atrasar a resposta
+    // action vira UPDATE — é o que realmente aconteceu no banco (status = 'desligado'),
+    // não um DELETE de verdade
     logAction({
       userId: req.user.id,
-      action: 'DELETE',
+      action: 'UPDATE',
       resource: 'colaborador',
       resourceId: Number(id),
       beforeData: antes,
+      afterData: colaborador,
       ipAddress: req.ip,
     });
 
