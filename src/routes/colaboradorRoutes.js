@@ -9,12 +9,14 @@ const {
   removerColaborador,
 } = require('../controllers/colaboradorController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const authorize = require('../middlewares/authorize');
 
 // authMiddleware entra antes de tudo — sem token válido, ninguém mexe em colaborador
-router.post('/', authMiddleware, registrarColaborador);
-router.get('/', authMiddleware, listarColaboradores);
-router.get('/:id', authMiddleware, buscarColaborador);
-router.put('/:id', authMiddleware, atualizarColaborador);
-router.delete('/:id', authMiddleware, removerColaborador);
+// authorize vem depois: confere a permissão específica de cada ação
+router.post('/', authMiddleware, authorize('colaboradores.create'), registrarColaborador);
+router.get('/', authMiddleware, authorize('colaboradores.view'), listarColaboradores);
+router.get('/:id', authMiddleware, authorize('colaboradores.view'), buscarColaborador);
+router.put('/:id', authMiddleware, authorize('colaboradores.edit'), atualizarColaborador);
+router.delete('/:id', authMiddleware, authorize('colaboradores.delete'), removerColaborador);
 
 module.exports = router;
