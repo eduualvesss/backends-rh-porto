@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const permissionRoutes = require('./routes/permissionRoutes');
 const colaboradorRoutes = require('./routes/colaboradorRoutes');
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(express.json()); // transforma corpo da requisição em req.body usável
 
 app.use('/auth', authRoutes); // todas rotas de auth ficam sob /auth/*
 app.use('/', auditRoutes); // GET /audit-logs
+app.use('/', permissionRoutes); // /usuarios/:id/permissoes
 app.use('/colaboradores', colaboradorRoutes); // todas rotas de colaboradores ficam sob /colaboradores/*
 
 const PORT = process.env.PORT || 3000;
