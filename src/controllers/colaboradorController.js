@@ -115,6 +115,23 @@ async function buscarColaborador(req, res) {
   }
 }
 
+async function buscarColaboradorPorCpf(req, res) {
+  const cpfLimpo = String(req.params.cpf).replace(/\D/g, '');
+  if (!validarCPF(cpfLimpo)) {
+    return res.status(400).json({ error: 'cpf inválido' });
+  }
+
+  try {
+    const colaborador = await Colaborador.findByCpf(cpfLimpo);
+    if (!colaborador) return res.status(404).json({ error: 'colaborador não encontrado' });
+
+    return res.json(colaborador);
+  } catch (err) {
+    console.error('Erro ao buscar colaborador por cpf:', err);
+    return res.status(500).json({ error: 'erro ao buscar colaborador' });
+  }
+}
+
 async function atualizarColaborador(req, res) {
   const { id } = req.params;
   const { nome, email, cpf, telefone, cargo, departamento, dataAdmissao, status } = req.body;
@@ -205,6 +222,7 @@ module.exports = {
   registrarColaborador,
   listarColaboradores,
   buscarColaborador,
+  buscarColaboradorPorCpf,
   atualizarColaborador,
   removerColaborador,
 };

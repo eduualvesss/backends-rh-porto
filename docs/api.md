@@ -196,18 +196,44 @@ Código	Situação
 403	Sem a permissão `usuarios.manage`
 404	Usuário não existe
 ---
-4. Rotas ainda não implementadas
+4. Colaboradores
+Arquivos: `colaboradorController.js`, `colaboradorRoutes.js`, `Colaborador.js`.
+GET `/colaboradores/cpf/:cpf`
+Busca um colaborador pelo CPF. Complementa a busca por `:id` (US04) para os casos em que o front só tem o CPF em mãos (ex.: conferência de admissão).
+Exige token + permissão `colaboradores.view`.
+Aceita o CPF com ou sem pontuação na URL (`/colaboradores/cpf/52998224725` ou `/colaboradores/cpf/529.982.247-25`) — os caracteres não numéricos são descartados antes da validação.
+⚠️ Precisa vir antes de `GET /colaboradores/:id` no router — senão o Express entende "cpf" como valor de `:id`.
+Devolve — 200:
+```json
+{
+  "id": 12,
+  "nome": "Fulano de Tal",
+  "email": "fulano@portodigital.org",
+  "cpf": "52998224725",
+  "telefone": "11999999999",
+  "cargo": "Analista",
+  "departamento": "TI",
+  "data_admissao": "2024-03-01",
+  "status": "ativo"
+}
+```
+Erros:
+Código	Situação
+400	CPF com formato ou dígitos verificadores inválidos
+401	Token ausente ou inválido
+403	Sem a permissão `colaboradores.view`
+404	Nenhum colaborador com esse CPF
+---
+5. Rotas ainda não implementadas
 Estas dependem de US's em andamento. Estão aqui só para o front saber o que vem.
 Rota prevista	US	Dono
-CRUD de `/colaboradores`	US04	Cadu
-`GET /colaboradores/cpf/:cpf`	US05	Colega
 `GET /colaboradores/:id/ficha-admissao`	US06	Igor
 Upload e listagem de documentos	US07	Cadu
 Aniversariantes do mês	US08	—
 Indicadores de RH	US09	—
 O formato de cada uma deve ser acrescentado a este documento antes de o front começar a integrar.
 ---
-5. Observações para quem for consumir a API
+6. Observações para quem for consumir a API
 Sempre trate o 403 diferente do 401. O 401 significa "faça login de novo". O 403 significa "você está logado, mas não pode fazer isso" — pedir novo login não resolve, e mandar o usuário para a tela de login nesse caso é confuso.
 Não guarde permissões no front como verdade permanente. Elas mudam no servidor a qualquer momento e a mudança vale na hora. Se a tela esconder um botão baseado em permissão, ela pode ficar desatualizada — mas o back vai barrar de qualquer forma.
 Inconsistência de rotas conhecida: `/auth/*` usa prefixo montado no `server.js`, enquanto as rotas de auditoria e permissões trazem o caminho completo dentro do próprio router. Funciona igual, é só um detalhe de organização interna. Não afeta quem consome.
