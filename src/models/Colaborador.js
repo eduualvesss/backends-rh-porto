@@ -120,6 +120,98 @@ async function findByCpf(cpf) {
   return result.rows[0];
 }
 
+async function findAniversariantesNascimento(mes) {
+  const result = await pool.query(
+    `SELECT id, nome, cargo, departamento, data_nascimento
+     FROM colaboradores
+     WHERE status = 'ativo' AND EXTRACT(MONTH FROM data_nascimento) = $1
+     ORDER BY EXTRACT(DAY FROM data_nascimento)`,
+    [mes]
+  );
+  return result.rows;
+}
+
+async function findAniversariantesEmpresa(mes) {
+  // AGE(NOW(), data_admissao) dá o intervalo completo; EXTRACT(YEAR ...) pega só os anos completos
+  const result = await pool.query(
+    `SELECT id, nome, cargo, departamento, data_admissao,
+            EXTRACT(YEAR FROM AGE(NOW(), data_admissao))::int AS anos_empresa
+     FROM colaboradores
+     WHERE status = 'ativo' AND EXTRACT(MONTH FROM data_admissao) = $1
+     ORDER BY EXTRACT(DAY FROM data_admissao)`,
+    [mes]
+  );
+  return result.rows;
+}
+
+async function getPorGenero() {
+  // NULLIF converte string vazia em NULL, aí o COALESCE agrupa junto com quem já veio NULL
+  const result = await pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(genero), ''), 'Não informado') AS categoria, COUNT(*)::int AS quantidade
+     FROM colaboradores
+     WHERE status = 'ativo'
+     GROUP BY categoria
+     ORDER BY quantidade DESC`
+  );
+  return result.rows;
+}
+
+async function getPorEscolaridade() {
+  const result = await pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(escolaridade), ''), 'Não informado') AS categoria, COUNT(*)::int AS quantidade
+     FROM colaboradores
+     WHERE status = 'ativo'
+     GROUP BY categoria
+     ORDER BY quantidade DESC`
+  );
+  return result.rows;
+}
+
+async function getPorEstadoCivil() {
+  const result = await pool.query(
+    `SELECT COALESCE(NULLIF(TRIM(estado_civil), ''), 'Não informado') AS categoria, COUNT(*)::int AS quantidade
+     FROM colaboradores
+     WHERE status = 'ativo'
+     GROUP BY categoria
+     ORDER BY quantidade DESC`
+  );
+  return result.rows;
+}
+
+async function getPorFaixaEtaria() {
+  // subquery calcula a faixa por linha, query de fora só agrupa e conta
+  const result = await pool.query(
+    `SELECT categoria, COUNT(*)::int AS quantidade
+     FROM (
+       SELECT
+         CASE
+           WHEN data_nascimento IS NULL THEN 'Não informado'
+           WHEN EXTRACT(YEAR FROM AGE(NOW(), data_nascimento)) BETWEEN 18 AND 24 THEN '18-24'
+           WHEN EXTRACT(YEAR FROM AGE(NOW(), data_nascimento)) BETWEEN 25 AND 34 THEN '25-34'
+           WHEN EXTRACT(YEAR FROM AGE(NOW(), data_nascimento)) BETWEEN 35 AND 44 THEN '35-44'
+           WHEN EXTRACT(YEAR FROM AGE(NOW(), data_nascimento)) BETWEEN 45 AND 54 THEN '45-54'
+           WHEN EXTRACT(YEAR FROM AGE(NOW(), data_nascimento)) BETWEEN 55 AND 64 THEN '55-64'
+           ELSE '65+'
+         END AS categoria
+       FROM colaboradores
+       WHERE status = 'ativo'
+     ) faixas
+     GROUP BY categoria`
+  );
+  return result.rows;
+}
+
+async function getIndicadorDesligamentos() {
+  // único indicador que considera ativo + desligado — os outros só olham quem está ativo
+  const result = await pool.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE status = 'desligado')::int AS desligados
+     FROM colaboradores`
+  );
+  return result.rows[0];
+}
+
 async function updateColaborador(id, fields) {
   // lista trava quais colunas podem ser tocadas — chave nunca vem direto do body pro SQL
   // schema original + resto das colunas do schema completo (migration 005)
@@ -168,6 +260,13 @@ module.exports = {
   findById,
   findByEmail,
   findByCpf,
+  findAniversariantesNascimento,
+  findAniversariantesEmpresa,
+  getPorGenero,
+  getPorEscolaridade,
+  getPorEstadoCivil,
+  getPorFaixaEtaria,
+  getIndicadorDesligamentos,
   updateColaborador,
   deleteColaborador,
   CAMPOS_OPCIONAIS,
