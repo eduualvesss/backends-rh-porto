@@ -6,6 +6,7 @@ const {
   listarColaboradores,
   buscarColaborador,
   buscarColaboradorPorCpf,
+  gerarFichaAdmissao,
   atualizarColaborador,
   removerColaborador,
 } = require('../controllers/colaboradorController');
@@ -19,6 +20,7 @@ router.get('/', authMiddleware, authorize('colaboradores.view'), listarColaborad
 // precisa vir antes de /:id, senão "cpf" seria capturado como :id
 router.get('/cpf/:cpf', authMiddleware, authorize('colaboradores.view'), buscarColaboradorPorCpf);
 router.get('/:id', authMiddleware, authorize('colaboradores.view'), buscarColaborador);
+router.get('/:id/ficha-admissao', authMiddleware, authorize('colaboradores.view'), gerarFichaAdmissao);
 router.put('/:id', authMiddleware, authorize('colaboradores.edit'), atualizarColaborador);
 router.delete('/:id', authMiddleware, authorize('colaboradores.delete'), removerColaborador);
 

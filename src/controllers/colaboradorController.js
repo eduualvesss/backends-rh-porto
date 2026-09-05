@@ -1,5 +1,6 @@
 // lógica de negócio fica toda aqui
 // cada função = uma ação que o front pode disparar
+const PDFDocument = require('pdfkit');
 const Colaborador = require('../models/Colaborador');
 const logAction = require('../utils/registrarLog');
 
@@ -22,6 +23,13 @@ function validarCPF(cpf) {
   if (resto !== Number(cpf[10])) return false;
 
   return true;
+}
+
+// campos vazios/nulos aparecem como travessão na ficha, nunca como "null" cru
+function formatCampo(valor) {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  if (valor instanceof Date) return valor.toLocaleDateString('pt-BR');
+  return String(valor);
 }
 
 // mapeia código de erro do Postgres pro status HTTP certo — sempre pelo código (err.code),
@@ -138,6 +146,97 @@ async function buscarColaboradorPorCpf(req, res) {
   }
 }
 
+async function gerarFichaAdmissao(req, res) {
+  // mesmo padrão de validação de :id usado em buscarColaborador
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+
+  try {
+    const colaborador = await Colaborador.findById(req.params.id);
+    if (!colaborador) return res.status(404).json({ error: 'colaborador não encontrado' });
+
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="ficha-admissao-${colaborador.id}.pdf"`);
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Ficha de Admissão', { align: 'center' });
+    doc.fontSize(11).text('Sistema de RH — Porto Digital', { align: 'center' });
+    doc.moveDown(1.5);
+
+    // cada seção = título + lista de "label: valor", igual ficha de papel
+    function secao(titulo, campos) {
+      doc.fontSize(13).text(titulo, { underline: true });
+      doc.moveDown(0.3);
+      doc.fontSize(10);
+      for (const [label, valor] of campos) {
+        doc.text(`${label}: ${formatCampo(valor)}`);
+      }
+      doc.moveDown(1);
+    }
+
+    secao('Dados básicos', [
+      ['Nome', colaborador.nome],
+      ['CPF', colaborador.cpf],
+      ['Data de nascimento', colaborador.data_nascimento],
+      ['Data de admissão', colaborador.data_admissao],
+      ['Tipo de contrato', colaborador.tipo_contrato],
+      ['Status', colaborador.status],
+    ]);
+
+    secao('Contato', [
+      ['Email', colaborador.email],
+      ['Telefone', colaborador.telefone],
+      ['Cargo', colaborador.cargo],
+      ['Departamento', colaborador.departamento],
+    ]);
+
+    secao('Identificação', [
+      ['RG', colaborador.rg],
+      ['Órgão emissor do RG', colaborador.rg_orgao_emissor],
+      ['Data de emissão do RG', colaborador.rg_data_emissao],
+      ['PIS', colaborador.pis],
+      ['CTPS número', colaborador.ctps_numero],
+      ['CTPS série', colaborador.ctps_serie],
+      ['Título de eleitor - zona', colaborador.titulo_zona],
+      ['Título de eleitor - seção', colaborador.titulo_secao],
+      ['Título de eleitor - data de emissão', colaborador.titulo_data_emissao],
+    ]);
+
+    secao('Dados pessoais', [
+      ['Nome da mãe', colaborador.nome_mae],
+      ['Nome do pai', colaborador.nome_pai],
+      ['Cidade de nascimento', colaborador.cidade_nascimento],
+      ['UF de nascimento', colaborador.uf_nascimento],
+    ]);
+
+    secao('Dados contratuais', [
+      ['CBO', colaborador.cbo],
+      ['Prazo do contrato', colaborador.prazo_contrato],
+      ['Duração do contrato', colaborador.duracao_contrato],
+      ['Fonte de recurso', colaborador.fonte_recurso],
+    ]);
+
+    secao('Dados financeiros', [
+      ['Banco', colaborador.banco],
+      ['Agência', colaborador.agencia],
+      ['Conta corrente', colaborador.conta_corrente],
+      ['Valor vale-alimentação', colaborador.valor_vale_alimentacao],
+    ]);
+
+    doc.end();
+  } catch (err) {
+    console.error('Erro ao gerar ficha de admissão:', err);
+    // se o PDF já começou a ser transmitido, não dá mais pra trocar por um JSON de erro
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'erro ao gerar ficha de admissão' });
+    }
+    res.end();
+  }
+}
+
 async function atualizarColaborador(req, res) {
   const { id } = req.params;
   const { nome, email, cpf, telefone, cargo, departamento, dataAdmissao, status } = req.body;
@@ -229,6 +328,7 @@ module.exports = {
   listarColaboradores,
   buscarColaborador,
   buscarColaboradorPorCpf,
+  gerarFichaAdmissao,
   atualizarColaborador,
   removerColaborador,
 };
