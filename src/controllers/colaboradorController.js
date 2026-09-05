@@ -104,6 +104,12 @@ async function listarColaboradores(req, res) {
 }
 
 async function buscarColaborador(req, res) {
+  // id vem da URL como string — precisa ser inteiro antes de bater no banco,
+  // senão o Postgres estoura erro de tipo (22P02) e cai como 500 genérico
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+
   try {
     const colaborador = await Colaborador.findById(req.params.id);
     if (!colaborador) return res.status(404).json({ error: 'colaborador não encontrado' });
