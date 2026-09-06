@@ -57,9 +57,11 @@ Catálogo de permissões e como conceder: ver `docs/api.md` e a tabela `permissi
 | Log de auditoria | ✅ Pronto |
 | Permissões granulares (US02) | ✅ Pronto |
 | Cadastro de colaboradores (US04) | ✅ Pronto |
-| Busca por CPF (US05) | ⏳ Pendente |
-| Ficha de admissão em PDF (US06) | ⏳ Pendente |
-| Documentos (US07) | ⏳ Pendente |
+| Busca por CPF (US05) | ✅ Pronto |
+| Ficha de admissão em PDF (US06) | ✅ Pronto |
+| Anexo de documentos pessoais (US07) | ✅ Pronto |
+| Painel de aniversariantes (US08) | ✅ Pronto |
+| Indicadores de RH (US09) | ✅ Pronto |
 
 ## Códigos de erro do Postgres tratados
 

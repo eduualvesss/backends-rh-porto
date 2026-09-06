@@ -140,12 +140,12 @@ Permissões individuais — para todos os outros, concedidas uma a uma.
 Um usuário admin não precisa de nenhuma linha em `user_permissions`.
 Catálogo de permissões
 Chave	Protege
-`colaboradores.view`	Ainda sem rota (depende do US04)
-`colaboradores.create`	Ainda sem rota
-`colaboradores.edit`	Ainda sem rota
-`colaboradores.delete`	Ainda sem rota
-`documentos.upload`	Ainda sem rota (depende do US07)
-`documentos.view`	Ainda sem rota
+`colaboradores.view`	`GET /colaboradores`, `GET /colaboradores/:id`, `GET /colaboradores/cpf/:cpf`, `GET /colaboradores/:id/ficha-admissao`, `GET /dashboard/*`
+`colaboradores.create`	`POST /colaboradores`
+`colaboradores.edit`	`PUT /colaboradores/:id`
+`colaboradores.delete`	`DELETE /colaboradores/:id`
+`documentos.upload`	`POST /colaboradores/:id/documentos`, `DELETE /colaboradores/:id/documentos/:documentoId` (ver seção 5 — sem chave própria pra delete)
+`documentos.view`	`GET /colaboradores/:id/documentos`, `GET /colaboradores/:id/documentos/:documentoId/download`
 `auditlog.view`	`GET /audit-logs`
 `usuarios.manage`	Todas as rotas desta seção
 `relatorios.export`	Ainda sem rota
@@ -224,14 +224,100 @@ Código	Situação
 403	Sem a permissão `colaboradores.view`
 404	Nenhum colaborador com esse CPF
 ---
-5. Rotas ainda não implementadas
-Estas dependem de US's em andamento. Estão aqui só para o front saber o que vem.
-Rota prevista	US	Dono
+5. Documentos (US07)
+Módulo do Cadu (US07). Arquivos: `documentoController.js`, `documentoRoutes.js`, `Documento.js`, `uploadDocumento.js`. Tabela `documentos` (migration 006).
+Armazenamento: disco local via `multer`, não Supabase/S3 — `.env.example` não tem credencial de storage externo configurada, então subir uma dependência de serviço externo ficaria fora do escopo desta US. Migrar depois é só trocar `uploadDocumento.js`; controller e model não sabem onde o arquivo fica salvo.
+Todas as rotas abaixo são aninhadas em `/colaboradores/:id/documentos`, onde `:id` é o colaborador dono do documento.
+POST `/colaboradores/:id/documentos`
+Anexa um documento (CTPS, CNH ou documento de dependente) a um colaborador.
+Exige token + permissão `documentos.upload`.
+Corpo: `multipart/form-data`, não JSON.
+Campo	Tipo	Obrigatório
+`arquivo`	arquivo	Sim — PDF, JPG ou PNG, até 5MB
+`tipo`	texto	Sim — um de: `ctps`, `cnh`, `dependente`, `outro`
+`dependente_nome`	texto	Só se `tipo = dependente`
+Devolve — 201:
+```json
+{
+  "id": 7,
+  "colaborador_id": 42,
+  "tipo": "ctps",
+  "dependente_nome": null,
+  "nome_arquivo": "ctps-joao.pdf",
+  "tipo_mime": "application/pdf",
+  "tamanho_bytes": 184320,
+  "uploaded_by": 1,
+  "created_at": "2026-09-06T20:47:00.000Z"
+}
+```
+⚠️ O campo `caminho_armazenamento` (onde o arquivo fica no disco do servidor) nunca aparece na resposta — é detalhe interno.
+Erros:
+Código	Situação
+400	`arquivo` ausente, `tipo` fora do enum, `dependente_nome` faltando quando `tipo = dependente`, tipo de arquivo não aceito, ou arquivo maior que 5MB
+401	Token ausente ou inválido
+403	Sem a permissão `documentos.upload`
+404	Colaborador não encontrado
+---
+GET `/colaboradores/:id/documentos`
+Lista os documentos de um colaborador, mais recente primeiro.
+Exige token + permissão `documentos.view`.
+Devolve — 200:
+```json
+{
+  "colaborador_id": 42,
+  "count": 1,
+  "documentos": [
+    {
+      "id": 7,
+      "colaborador_id": 42,
+      "tipo": "ctps",
+      "dependente_nome": null,
+      "nome_arquivo": "ctps-joao.pdf",
+      "tipo_mime": "application/pdf",
+      "tamanho_bytes": 184320,
+      "uploaded_by": 1,
+      "created_at": "2026-09-06T20:47:00.000Z"
+    }
+  ]
+}
+```
+Erros:
+Código	Situação
+400	`id` do colaborador não é numérico
+401	Token ausente ou inválido
+403	Sem a permissão `documentos.view`
+404	Colaborador não encontrado
+---
+GET `/colaboradores/:id/documentos/:documentoId/download`
+Baixa o arquivo original. Resposta é o binário do arquivo, não JSON.
+Exige token + permissão `documentos.view`.
+⚠️ `:documentoId` precisa pertencer ao colaborador `:id` da URL — um documento de outro colaborador devolve 404, mesmo que o `:documentoId` exista de verdade (proteção contra acessar documento de colaborador errado só adivinhando o id numérico).
+Erros:
+Código	Situação
+400	`id` ou `documentoId` não numérico
+401	Token ausente ou inválido
+403	Sem a permissão `documentos.view`
+404	Documento não encontrado, não pertence a esse colaborador, ou o arquivo sumiu do disco do servidor
+---
+DELETE `/colaboradores/:id/documentos/:documentoId`
+Remove o documento (registro no banco + arquivo no disco).
+Exige token + permissão `documentos.upload`.
+⚠️ O catálogo de permissões não tem uma chave própria pra deletar documento — esta rota reaproveita `documentos.upload` (quem pode anexar também pode desfazer o próprio anexo). Se isso não for o comportamento desejado, precisa de uma permissão `documentos.delete` nova no catálogo.
+Devolve — 204, sem corpo.
+Erros:
+Código	Situação
+400	`id` ou `documentoId` não numérico
+401	Token ausente ou inválido
+403	Sem a permissão `documentos.upload`
+404	Documento não encontrado ou não pertence a esse colaborador
+---
+6. Rotas ainda não documentadas neste arquivo
+⚠️ Estas rotas já existem no código (não são "não implementadas" — foram entregues antes do documento ser atualizado), só falta escrever o contrato aqui. Não confundir com pendência de desenvolvimento.
+Rota	US	Dono
 `GET /colaboradores/:id/ficha-admissao`	US06	Igor
-Upload e listagem de documentos	US07	Cadu
-Aniversariantes do mês	US08	—
-Indicadores de RH	US09	—
-O formato de cada uma deve ser acrescentado a este documento antes de o front começar a integrar.
+`GET /dashboard/aniversariantes`	US08	Igor
+`GET /dashboard/indicadores`	US09	Igor
+Quem for mexer numa dessas, documentar aqui no mesmo formato das seções acima antes do front integrar.
 ---
 6. Observações para quem for consumir a API
 Sempre trate o 403 diferente do 401. O 401 significa "faça login de novo". O 403 significa "você está logado, mas não pode fazer isso" — pedir novo login não resolve, e mandar o usuário para a tela de login nesse caso é confuso.

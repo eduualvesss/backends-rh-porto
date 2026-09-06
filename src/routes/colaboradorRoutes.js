@@ -12,6 +12,12 @@ const {
 } = require('../controllers/colaboradorController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/authorize');
+const documentoRoutes = require('./documentoRoutes');
+
+// diferente do /cpf/:cpf abaixo, aqui a ordem não importa: "/:id/documentos" tem um
+// segmento a mais que "/:id" e "/:id/ficha-admissao", então nunca colide com eles —
+// fica no topo só por organização (rotas de sub-recurso agrupadas)
+router.use('/:id/documentos', documentoRoutes);
 
 // authMiddleware entra antes de tudo — sem token válido, ninguém mexe em colaborador
 // authorize vem depois: confere a permissão específica de cada ação
