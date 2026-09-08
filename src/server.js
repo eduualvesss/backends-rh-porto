@@ -6,6 +6,7 @@ const auditRoutes = require('./routes/auditRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
 const colaboradorRoutes = require('./routes/colaboradorRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const centroCustoRoutes = require('./routes/centroCustoRoutes');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use('/', auditRoutes); // GET /audit-logs
 app.use('/', permissionRoutes); // /usuarios/:id/permissoes
 app.use('/colaboradores', colaboradorRoutes); // todas rotas de colaboradores ficam sob /colaboradores/*
 app.use('/', dashboardRoutes); // GET /dashboard/aniversariantes
+app.use('/', centroCustoRoutes); // GET /centros-custo, GET /centros-custo/:centroCustoId/historico
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));

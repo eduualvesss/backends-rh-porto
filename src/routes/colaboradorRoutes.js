@@ -10,6 +10,8 @@ const {
   atualizarColaborador,
   removerColaborador,
 } = require('../controllers/colaboradorController');
+const { consultarPorColaborador } = require('../controllers/centroCustoController');
+const { consultarFerias } = require('../controllers/feriasController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/authorize');
 const documentoRoutes = require('./documentoRoutes');
@@ -27,6 +29,8 @@ router.get('/', authMiddleware, authorize('colaboradores.view'), listarColaborad
 router.get('/cpf/:cpf', authMiddleware, authorize('colaboradores.view'), buscarColaboradorPorCpf);
 router.get('/:id', authMiddleware, authorize('colaboradores.view'), buscarColaborador);
 router.get('/:id/ficha-admissao', authMiddleware, authorize('colaboradores.view'), gerarFichaAdmissao);
+router.get('/:id/centro-custo', authMiddleware, authorize('colaboradores.view'), consultarPorColaborador);
+router.get('/:id/ferias', authMiddleware, authorize('colaboradores.view'), consultarFerias);
 router.put('/:id', authMiddleware, authorize('colaboradores.edit'), atualizarColaborador);
 router.delete('/:id', authMiddleware, authorize('colaboradores.delete'), removerColaborador);
 
