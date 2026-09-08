@@ -212,6 +212,49 @@ async function getIndicadorDesligamentos() {
   return result.rows[0];
 }
 
+// lista fixa de colunas exportáveis (US13) — nome de coluna nunca entra no SELECT
+// sem passar por aqui. Placeholder ($1, $2...) só escapa VALOR, não serve pra
+// identifier (nome de coluna), então esse filtro é a única defesa contra SQL
+// injection via nome de coluna nesse endpoint
+const COLUNAS_EXPORTACAO_PERMITIDAS = [
+  'nome', 'cpf', 'email', 'telefone', 'cargo', 'departamento',
+  'data_admissao', 'data_nascimento', 'status', 'genero',
+  'escolaridade', 'estado_civil', 'tipo_contrato',
+];
+
+const COLUNAS_EXPORTACAO_PADRAO = ['nome', 'cpf', 'cargo', 'departamento', 'data_admissao', 'status'];
+
+async function findParaExportacao(campos, filtros = {}) {
+  const colunasValidas = Array.isArray(campos)
+    ? campos.filter((c) => COLUNAS_EXPORTACAO_PERMITIDAS.includes(c))
+    : [];
+  const colunas = colunasValidas.length ? colunasValidas : COLUNAS_EXPORTACAO_PADRAO;
+
+  // mesmo padrão de WHERE dinâmico do findAll — só nomes de coluna fixos aqui,
+  // valores sempre via placeholder
+  const { status, departamento } = filtros;
+  const conditions = [];
+  const params = [];
+
+  if (status !== undefined) {
+    params.push(status);
+    conditions.push(`status = $${params.length}`);
+  }
+
+  if (departamento !== undefined) {
+    params.push(departamento);
+    conditions.push(`departamento = $${params.length}`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const result = await pool.query(
+    `SELECT ${colunas.join(', ')} FROM colaboradores ${where} ORDER BY nome`,
+    params
+  );
+  return result.rows;
+}
+
 async function updateColaborador(id, fields) {
   // lista trava quais colunas podem ser tocadas — chave nunca vem direto do body pro SQL
   // schema original + resto das colunas do schema completo (migration 005)
@@ -269,5 +312,8 @@ module.exports = {
   getIndicadorDesligamentos,
   updateColaborador,
   deleteColaborador,
+  findParaExportacao,
   CAMPOS_OPCIONAIS,
+  COLUNAS_EXPORTACAO_PERMITIDAS,
+  COLUNAS_EXPORTACAO_PADRAO,
 };

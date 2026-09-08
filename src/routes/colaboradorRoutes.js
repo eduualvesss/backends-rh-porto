@@ -12,6 +12,7 @@ const {
 } = require('../controllers/colaboradorController');
 const { consultarPorColaborador } = require('../controllers/centroCustoController');
 const { consultarFerias } = require('../controllers/feriasController');
+const { registrarAtestado, listarAtestados } = require('../controllers/atestadoController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/authorize');
 const documentoRoutes = require('./documentoRoutes');
@@ -31,6 +32,9 @@ router.get('/:id', authMiddleware, authorize('colaboradores.view'), buscarColabo
 router.get('/:id/ficha-admissao', authMiddleware, authorize('colaboradores.view'), gerarFichaAdmissao);
 router.get('/:id/centro-custo', authMiddleware, authorize('colaboradores.view'), consultarPorColaborador);
 router.get('/:id/ferias', authMiddleware, authorize('colaboradores.view'), consultarFerias);
+// escrita sobre o cadastro do colaborador — reaproveita colaboradores.edit, não cria permissão nova
+router.post('/:id/atestados', authMiddleware, authorize('colaboradores.edit'), registrarAtestado);
+router.get('/:id/atestados', authMiddleware, authorize('colaboradores.view'), listarAtestados);
 router.put('/:id', authMiddleware, authorize('colaboradores.edit'), atualizarColaborador);
 router.delete('/:id', authMiddleware, authorize('colaboradores.delete'), removerColaborador);
 
